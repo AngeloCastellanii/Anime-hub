@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AnimeHub</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./css/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <nav-bar></nav-bar>
+      <main id="app-view" class="app-view" aria-live="polite"></main>
+      <app-footer></app-footer>
+    </div>
+
+    <script src="./js/components/NavBar.js"></script>
+    <script src="./js/components/AppFooter.js"></script>
+    <script src="./js/components/LoadingState.js"></script>
+    <script src="./js/components/ErrorState.js"></script>
+    <script src="./js/components/AnimeCard.js"></script>
+    <script src="./js/components/AnimeGrid.js"></script>
+    <script src="./js/components/SearchBar.js"></script>
+    <script src="./js/components/GenreFilter.js"></script>
+    <script src="./js/components/AnimeDetail.js"></script>
+    <script src="./js/app.js"></script>
+  </body>
+</html>
