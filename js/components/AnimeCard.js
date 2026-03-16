@@ -1,13 +1,56 @@
 (function () {
+  function getFallbackCoverDataUrl() {
+    var svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600" viewBox="0 0 400 600">' +
+      '<rect width="400" height="600" fill="#eadfce"/>' +
+      '<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#8a6f4f" font-family="Montserrat, sans-serif" font-size="28">AnimeHub</text>' +
+      '</svg>';
+
+    return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+  }
+
+  function mapStatusClass(status) {
+    if (status === 'Currently Airing') {
+      return 'is-airing';
+    }
+
+    if (status === 'Finished Airing') {
+      return 'is-finished';
+    }
+
+    return 'is-other';
+  }
+
+  function normalizeAnime(anime) {
+    var safeAnime = anime || {};
+    var title = safeAnime.title_english || safeAnime.title || 'Anime sin titulo';
+    var imageUrl = safeAnime.images && safeAnime.images.jpg ? safeAnime.images.jpg.image_url : '';
+    var scoreValue = safeAnime.score == null ? 'N/A' : String(safeAnime.score);
+    var episodeValue = safeAnime.episodes == null ? '?' : String(safeAnime.episodes);
+    var statusValue = safeAnime.status || 'Estado desconocido';
+
+    return {
+      id: safeAnime.mal_id || null,
+      title: title,
+      imageUrl: imageUrl,
+      score: scoreValue,
+      episodes: episodeValue,
+      status: statusValue,
+      statusClass: mapStatusClass(statusValue)
+    };
+  }
+
   class AnimeCard extends HTMLElement {
     constructor() {
       super();
 
       this.anime = null;
+      this.fallbackCover = getFallbackCoverDataUrl();
 
       this.rootButton = document.createElement('button');
       this.rootButton.type = 'button';
       this.rootButton.className = 'anime-card__button';
+      this.rootButton.setAttribute('aria-label', 'Abrir detalle de anime');
 
       this.article = document.createElement('article');
       this.article.className = 'anime-card';
@@ -45,6 +88,7 @@
       this.appendChild(this.rootButton);
 
       this.rootButton.addEventListener('click', this.handleClick.bind(this));
+      this.image.addEventListener('error', this.handleImageError.bind(this));
 
       this.render();
     }
@@ -63,40 +107,29 @@
         new CustomEvent('card-click', {
           bubbles: true,
           composed: true,
-          detail: { id: this.anime.mal_id }
+          detail: {
+            id: this.anime.mal_id,
+            anime: this.anime
+          }
         })
       );
     }
 
+    handleImageError() {
+      this.image.src = this.fallbackCover;
+    }
+
     render() {
-      var title = 'Anime sin titulo';
-      var imageUrl = '';
-      var score = 'N/A';
-      var episodes = '?';
-      var status = 'Estado desconocido';
-      var statusClass = 'is-other';
+      var animeInfo = normalizeAnime(this.anime);
 
-      if (this.anime) {
-        title = this.anime.title_english || this.anime.title || 'Anime sin titulo';
-        imageUrl = this.anime.images && this.anime.images.jpg ? this.anime.images.jpg.image_url : '';
-        score = this.anime.score == null ? 'N/A' : String(this.anime.score);
-        episodes = this.anime.episodes == null ? '?' : String(this.anime.episodes);
-        status = this.anime.status || 'Estado desconocido';
-
-        if (status === 'Currently Airing') {
-          statusClass = 'is-airing';
-        } else if (status === 'Finished Airing') {
-          statusClass = 'is-finished';
-        }
-      }
-
-      this.image.src = imageUrl || 'https://via.placeholder.com/400x600?text=AnimeHub';
-      this.image.alt = 'Portada de ' + title;
-      this.title.textContent = title;
-      this.score.textContent = 'Score: ' + score;
-      this.episodes.textContent = 'Episodios: ' + episodes;
-      this.status.textContent = status;
-      this.status.className = 'anime-card__pill anime-card__status ' + statusClass;
+      this.image.src = animeInfo.imageUrl || this.fallbackCover;
+      this.image.alt = 'Portada de ' + animeInfo.title;
+      this.title.textContent = animeInfo.title;
+      this.score.textContent = 'Score: ' + animeInfo.score;
+      this.episodes.textContent = 'Episodios: ' + animeInfo.episodes;
+      this.status.textContent = animeInfo.status;
+      this.status.className = 'anime-card__pill anime-card__status ' + animeInfo.statusClass;
+      this.rootButton.setAttribute('aria-label', 'Abrir detalle de ' + animeInfo.title);
     }
   }
 

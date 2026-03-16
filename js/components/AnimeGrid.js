@@ -4,6 +4,7 @@
       super();
 
       this.items = [];
+      this.emptyMessage = 'Todavia no hay animes para mostrar.';
 
       this.root = document.createElement('section');
       this.root.className = 'anime-grid';
@@ -13,18 +14,36 @@
 
       this.empty = document.createElement('p');
       this.empty.className = 'anime-grid__empty';
-      this.empty.textContent = 'Todavia no hay animes para mostrar.';
+      this.empty.textContent = this.emptyMessage;
 
       this.root.appendChild(this.empty);
       this.root.appendChild(this.content);
       this.appendChild(this.root);
 
+      this.content.addEventListener('card-click', this.handleCardClick.bind(this));
+
       this.render();
     }
 
     set data(items) {
-      this.items = Array.isArray(items) ? items : [];
+      this.items = Array.isArray(items) ? items.slice() : [];
       this.render();
+    }
+
+    setEmptyMessage(message) {
+      this.emptyMessage = message || 'Todavia no hay animes para mostrar.';
+      this.empty.textContent = this.emptyMessage;
+      this.render();
+    }
+
+    handleCardClick(event) {
+      this.dispatchEvent(
+        new CustomEvent('grid-card-click', {
+          bubbles: true,
+          composed: true,
+          detail: event.detail || null
+        })
+      );
     }
 
     render() {
