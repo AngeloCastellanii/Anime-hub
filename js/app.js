@@ -88,7 +88,7 @@
     detail.data = {
       mal_id: detailId,
       title: 'Anime #' + detailId,
-      synopsis: 'Vista de detalle base activa. En el siguiente bloque conectaremos este componente con la API.',
+      synopsis: 'Vista de detalle base activa. La informacion completa se cargara desde la API de Jikan.',
       genres: []
     };
 
