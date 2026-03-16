@@ -2,7 +2,8 @@
   var appState = {
     currentView: null,
     previousView: 'home',
-    currentDetailId: null
+    currentDetailId: null,
+    renderToken: 0
   };
 
   function createPlaceholderView(title, description) {
@@ -64,13 +65,137 @@
     window.location.hash = targetHash;
   }
 
-  function renderHomeView(appView) {
-    appView.appendChild(
-      createPlaceholderView(
-        'Explora el universo del anime',
-        'Descubre animes populares, sigue la temporada actual y accede rapidamente a informacion detallada de cada titulo.'
-      )
+  function getFriendlyErrorMessage(error) {
+    if (!error || !error.type) {
+      return 'Ocurrio un error inesperado. Intenta nuevamente.';
+    }
+
+    if (error.type === 'timeout') {
+      return 'La solicitud tardo demasiado. Revisa tu conexion e intenta otra vez.';
+    }
+
+    if (error.type === 'network') {
+      return 'No fue posible conectar con la API. Verifica tu conexion.';
+    }
+
+    if (error.type === 'http') {
+      return 'La API devolvio una respuesta no valida. Intenta nuevamente en unos segundos.';
+    }
+
+    if (error.type === 'validation') {
+      return error.message || 'Los datos de entrada no son validos.';
+    }
+
+    if (error.type === 'cancelled') {
+      return 'La solicitud anterior fue cancelada.';
+    }
+
+    return 'Ocurrio un error inesperado. Intenta nuevamente.';
+  }
+
+  function createLoadingState(title, message) {
+    var loading = document.createElement('loading-state');
+
+    if (typeof loading.setTitle === 'function') {
+      loading.setTitle(title || 'Cargando');
+    }
+
+    if (typeof loading.setMessage === 'function') {
+      loading.setMessage(message || 'Cargando contenido...');
+    }
+
+    return loading;
+  }
+
+  function createErrorState(title, message, onRetry) {
+    var errorState = document.createElement('error-state');
+
+    if (typeof errorState.setTitle === 'function') {
+      errorState.setTitle(title || 'No se pudo completar la operacion');
+    }
+
+    if (typeof errorState.setMessage === 'function') {
+      errorState.setMessage(message || 'Ocurrio un error al cargar la informacion.');
+    }
+
+    if (typeof errorState.setCanRetry === 'function') {
+      errorState.setCanRetry(typeof onRetry === 'function');
+    }
+
+    if (typeof onRetry === 'function') {
+      errorState.addEventListener('retry', function () {
+        onRetry();
+      });
+    }
+
+    return errorState;
+  }
+
+  function createHomeHero() {
+    return createPlaceholderView(
+      'Explora el universo del anime',
+      'Descubre animes populares, sigue la temporada actual y accede rapidamente a informacion detallada de cada titulo.'
     );
+  }
+
+  function createTopAnimeSection(animes) {
+    var wrapper = document.createElement('section');
+    wrapper.className = 'panel hero-panel';
+
+    var heading = document.createElement('h2');
+    heading.textContent = 'Top Anime';
+
+    var subtitle = document.createElement('p');
+    subtitle.textContent = 'Ranking de titulos populares desde MyAnimeList.';
+
+    var grid = document.createElement('anime-grid');
+    grid.data = animes;
+
+    wrapper.appendChild(heading);
+    wrapper.appendChild(subtitle);
+    wrapper.appendChild(grid);
+
+    return wrapper;
+  }
+
+  async function renderHomeView(appView, renderToken) {
+    var loading = createLoadingState('Cargando portada', 'Consultando animes populares...');
+
+    appView.appendChild(createHomeHero());
+    appView.appendChild(loading);
+
+    if (!window.AnimeHubApi || typeof window.AnimeHubApi.getTopAnime !== 'function') {
+      appView.replaceChildren(
+        createHomeHero(),
+        createErrorState('Servicio no disponible', 'No se encontro el servicio de API.', null)
+      );
+      return;
+    }
+
+    try {
+      var topAnime = await window.AnimeHubApi.getTopAnime({ limit: 12, timeoutMs: 10000 });
+
+      if (appState.renderToken !== renderToken || appState.currentView !== 'home') {
+        return;
+      }
+
+      appView.replaceChildren(createHomeHero(), createTopAnimeSection(topAnime));
+    } catch (error) {
+      if (appState.renderToken !== renderToken || appState.currentView !== 'home') {
+        return;
+      }
+
+      if (error && error.type === 'cancelled') {
+        return;
+      }
+
+      appView.replaceChildren(
+        createHomeHero(),
+        createErrorState('Error cargando portada', getFriendlyErrorMessage(error), function () {
+          renderView();
+        })
+      );
+    }
   }
 
   function renderSearchView(appView) {
@@ -82,23 +207,57 @@
     );
   }
 
-  function renderDetailView(appView, detailId) {
-    var detail = document.createElement('anime-detail');
+  async function renderDetailView(appView, detailId, renderToken) {
+    var loading = createLoadingState('Cargando detalle', 'Consultando informacion completa del anime...');
 
-    detail.data = {
-      mal_id: detailId,
-      title: 'Anime #' + detailId,
-      synopsis: 'Vista de detalle base activa. La informacion completa se cargara desde la API de Jikan.',
-      genres: []
-    };
+    appView.appendChild(loading);
 
-    appView.appendChild(detail);
+    if (!window.AnimeHubApi || typeof window.AnimeHubApi.getAnimeDetail !== 'function') {
+      appView.replaceChildren(
+        createErrorState('Servicio no disponible', 'No se encontro el servicio de API.', function () {
+          renderView();
+        })
+      );
+      return;
+    }
+
+    try {
+      var detailData = await window.AnimeHubApi.getAnimeDetail(detailId, { timeoutMs: 10000 });
+
+      if (appState.renderToken !== renderToken || appState.currentView !== 'detail') {
+        return;
+      }
+
+      var detail = document.createElement('anime-detail');
+      detail.data = detailData || { mal_id: detailId, title: 'Anime #' + detailId, synopsis: 'Sin datos disponibles.', genres: [] };
+
+      appView.replaceChildren(detail);
+    } catch (error) {
+      if (appState.renderToken !== renderToken || appState.currentView !== 'detail') {
+        return;
+      }
+
+      if (error && error.type === 'cancelled') {
+        return;
+      }
+
+      appView.replaceChildren(
+        createErrorState('Error cargando detalle', getFriendlyErrorMessage(error), function () {
+          renderView();
+        })
+      );
+    }
   }
 
   function renderView() {
+    var renderToken = ++appState.renderToken;
     var appView = document.getElementById('app-view');
     var navBar = document.querySelector('nav-bar');
     var navView = appState.currentView === 'detail' ? appState.previousView : appState.currentView;
+
+    if (window.AnimeHubApi && typeof window.AnimeHubApi.cancelAllRequests === 'function') {
+      window.AnimeHubApi.cancelAllRequests();
+    }
 
     if (!appView) {
       return;
@@ -109,9 +268,9 @@
     if (appState.currentView === 'search') {
       renderSearchView(appView);
     } else if (appState.currentView === 'detail') {
-      renderDetailView(appView, appState.currentDetailId);
+      renderDetailView(appView, appState.currentDetailId, renderToken);
     } else {
-      renderHomeView(appView);
+      renderHomeView(appView, renderToken);
     }
 
     if (navBar && typeof navBar.setActiveView === 'function') {

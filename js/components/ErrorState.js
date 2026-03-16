@@ -3,6 +3,7 @@
     constructor() {
       super();
 
+      this.titleText = 'No se pudo completar la operacion';
       this.message = 'Ocurrio un error al cargar la informacion.';
 
       this.root = document.createElement('section');
@@ -10,9 +11,10 @@
 
       this.panel = document.createElement('div');
       this.panel.className = 'error-state__panel';
+      this.panel.setAttribute('role', 'alert');
 
       this.title = document.createElement('strong');
-      this.title.textContent = 'No se pudo completar la operacion';
+      this.title.textContent = this.titleText;
 
       this.text = document.createElement('p');
       this.text.textContent = this.message;
@@ -43,6 +45,15 @@
     setMessage(message) {
       this.message = message || 'Ocurrio un error al cargar la informacion.';
       this.text.textContent = this.message;
+    }
+
+    setTitle(title) {
+      this.titleText = title || 'No se pudo completar la operacion';
+      this.title.textContent = this.titleText;
+    }
+
+    setCanRetry(canRetry) {
+      this.retryButton.hidden = !canRetry;
     }
   }
 
