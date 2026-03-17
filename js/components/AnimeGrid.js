@@ -18,7 +18,14 @@
 
       this.root.appendChild(this.empty);
       this.root.appendChild(this.content);
-      this.appendChild(this.root);
+
+      queueMicrotask(
+        function () {
+          if (!this.contains(this.root)) {
+            this.appendChild(this.root);
+          }
+        }.bind(this)
+      );
 
       this.content.addEventListener('card-click', this.handleCardClick.bind(this));
 
@@ -33,7 +40,10 @@
     setEmptyMessage(message) {
       this.emptyMessage = message || 'Todavia no hay animes para mostrar.';
       this.empty.textContent = this.emptyMessage;
-      this.render();
+
+      if (!this.items.length) {
+        this.render();
+      }
     }
 
     handleCardClick(event) {
@@ -53,12 +63,16 @@
 
       if (!this.items.length) {
         this.empty.hidden = false;
+        this.empty.removeAttribute('hidden');
         this.content.hidden = true;
+        this.content.setAttribute('hidden', 'hidden');
         return;
       }
 
       this.empty.hidden = true;
+      this.empty.setAttribute('hidden', 'hidden');
       this.content.hidden = false;
+      this.content.removeAttribute('hidden');
 
       this.items.forEach(function (anime) {
         var card = document.createElement('anime-card');

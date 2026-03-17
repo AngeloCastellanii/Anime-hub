@@ -1,5 +1,8 @@
 (function () {
   var DEFAULT_TIMEOUT_MS = 10000;
+  var REQUEST_SPACING_MS = 420;
+  var RATE_LIMIT_RETRY_DELAY_MS = 1200;
+  var requestQueue = Promise.resolve();
 
   function createAppError(type, message, details) {
     var error = new Error(message);
@@ -41,6 +44,77 @@
     return controller.signal;
   }
 
+  function delay(ms) {
+    return new Promise(function (resolve) {
+      window.setTimeout(resolve, ms);
+    });
+  }
+
+  function readRateLimitPayload(response) {
+    return response
+      .clone()
+      .json()
+      .catch(function () {
+        return null;
+      });
+  }
+
+  function enqueueRequest(work) {
+    requestQueue = requestQueue
+      .catch(function () {
+        return null;
+      })
+      .then(function () {
+        return work();
+      })
+      .then(function (result) {
+        return delay(REQUEST_SPACING_MS).then(function () {
+          return result;
+        });
+      });
+
+    return requestQueue;
+  }
+
+  async function fetchJsonWithPolicies(url, config, combinedSignal) {
+    var maxRetries = typeof config.maxRetries === 'number' ? config.maxRetries : 1;
+    var attempt = 0;
+
+    while (attempt <= maxRetries) {
+      var response = await fetch(url, {
+        method: config.method || 'GET',
+        headers: config.headers || {},
+        signal: combinedSignal
+      });
+
+      if (response.ok) {
+        return await response.json();
+      }
+
+      if (response.status === 429 && attempt < maxRetries) {
+        attempt += 1;
+        await delay(RATE_LIMIT_RETRY_DELAY_MS);
+        continue;
+      }
+
+      var rateLimitPayload = response.status === 429 ? await readRateLimitPayload(response) : null;
+      var errorType = response.status === 429 ? 'rate-limit' : 'http';
+
+      throw createAppError(errorType, 'La API respondio con error.', {
+        status: response.status,
+        statusText: response.statusText,
+        url: url,
+        payload: rateLimitPayload
+      });
+    }
+
+    throw createAppError('http', 'La API respondio con error.', {
+      status: 500,
+      statusText: 'unknown',
+      url: url
+    });
+  }
+
   // Ejecuta fetch con timeout y clasificacion de errores para que la UI los maneje de forma uniforme.
   async function requestJson(url, options) {
     var config = options || {};
@@ -56,21 +130,9 @@
     }
 
     try {
-      var response = await fetch(url, {
-        method: config.method || 'GET',
-        headers: config.headers || {},
-        signal: combinedSignal
+      return await enqueueRequest(function () {
+        return fetchJsonWithPolicies(url, config, combinedSignal);
       });
-
-      if (!response.ok) {
-        throw createAppError('http', 'La API respondio con error.', {
-          status: response.status,
-          statusText: response.statusText,
-          url: url
-        });
-      }
-
-      return await response.json();
     } catch (error) {
       if (error && error.type) {
         throw error;

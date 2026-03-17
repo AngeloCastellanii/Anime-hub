@@ -37,7 +37,14 @@
       this.content.appendChild(this.brandButton);
       this.content.appendChild(this.nav);
       this.root.appendChild(this.content);
-      this.appendChild(this.root);
+
+      queueMicrotask(
+        function () {
+          if (!this.contains(this.root)) {
+            this.appendChild(this.root);
+          }
+        }.bind(this)
+      );
 
       this.brandButton.addEventListener('click', this.handleNavigate.bind(this, 'home'));
       this.homeButton.addEventListener('click', this.handleNavigate.bind(this, 'home'));

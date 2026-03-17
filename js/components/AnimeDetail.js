@@ -16,8 +16,8 @@
       this.backButton.className = 'anime-detail__back';
       this.backButton.textContent = '<- Volver';
 
-      this.title = document.createElement('h2');
-      this.title.className = 'anime-detail__title';
+      this.titleElement = document.createElement('h2');
+      this.titleElement.className = 'anime-detail__title';
 
       this.meta = document.createElement('div');
       this.meta.className = 'anime-detail__meta';
@@ -41,12 +41,19 @@
       this.meta.appendChild(this.status);
       this.meta.appendChild(this.season);
       this.panel.appendChild(this.backButton);
-      this.panel.appendChild(this.title);
+      this.panel.appendChild(this.titleElement);
       this.panel.appendChild(this.meta);
       this.panel.appendChild(this.synopsis);
       this.panel.appendChild(this.genres);
       this.root.appendChild(this.panel);
-      this.appendChild(this.root);
+
+      queueMicrotask(
+        function () {
+          if (!this.contains(this.root)) {
+            this.appendChild(this.root);
+          }
+        }.bind(this)
+      );
 
       this.backButton.addEventListener('click', this.handleBack.bind(this));
 
@@ -84,7 +91,7 @@
         genres = Array.isArray(this.anime.genres) ? this.anime.genres : [];
       }
 
-      this.title.textContent = title;
+      this.titleElement.textContent = title;
       this.score.textContent = score;
       this.status.textContent = status;
       this.season.textContent = season;

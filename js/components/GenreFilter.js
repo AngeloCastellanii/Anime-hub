@@ -22,7 +22,14 @@
       this.inner.appendChild(this.label);
       this.inner.appendChild(this.select);
       this.root.appendChild(this.inner);
-      this.appendChild(this.root);
+
+      queueMicrotask(
+        function () {
+          if (!this.contains(this.root)) {
+            this.appendChild(this.root);
+          }
+        }.bind(this)
+      );
 
       this.select.addEventListener('change', this.handleChange.bind(this));
 

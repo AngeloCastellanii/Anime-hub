@@ -31,7 +31,14 @@
       this.form.appendChild(this.input);
       this.form.appendChild(this.submitButton);
       this.root.appendChild(this.form);
-      this.appendChild(this.root);
+
+      queueMicrotask(
+        function () {
+          if (!this.contains(this.root)) {
+            this.appendChild(this.root);
+          }
+        }.bind(this)
+      );
 
       this.form.addEventListener('submit', this.handleSubmit.bind(this));
     }

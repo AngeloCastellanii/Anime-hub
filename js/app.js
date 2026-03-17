@@ -83,6 +83,10 @@
       return 'La API devolvio una respuesta no valida. Intenta nuevamente en unos segundos.';
     }
 
+    if (error.type === 'rate-limit') {
+      return 'Se alcanzo el limite temporal de Jikan. Espera unos segundos y vuelve a intentar.';
+    }
+
     if (error.type === 'validation') {
       return error.message || 'Los datos de entrada no son validos.';
     }
@@ -158,9 +162,10 @@
     heading.textContent = 'Top Anime';
 
     var subtitle = document.createElement('p');
-    subtitle.textContent = 'Ranking de titulos populares desde MyAnimeList.';
+    subtitle.textContent = 'Ranking de titulos populares desde MyAnimeList. Total: ' + animes.length;
 
     var grid = document.createElement('anime-grid');
+    grid.setEmptyMessage('La API respondio sin resultados para Top Anime.');
     grid.data = animes;
 
     wrapper.appendChild(heading);
@@ -227,10 +232,16 @@
     var seasonName = getCurrentSeasonLabel();
     var shell = createSectionShell('Temporada actual', seasonName);
     var row = document.createElement('div');
+    var items = Array.isArray(animes) ? animes : [];
+    var subtitle = document.createElement('p');
 
     row.className = 'home-season-row';
+    subtitle.className = 'home-section__meta';
+    subtitle.textContent = 'Resultados de temporada: ' + items.length;
 
-    (animes || []).slice(0, 6).forEach(function (anime) {
+    shell.body.appendChild(subtitle);
+
+    items.slice(0, 6).forEach(function (anime) {
       var card = document.createElement('anime-card');
       card.classList.add('home-season-row__card');
       card.data = anime;
@@ -282,13 +293,15 @@
 
       var topResult = results[0];
       var seasonResult = results[1];
+      var topItems = topResult.status === 'fulfilled' && Array.isArray(topResult.value) ? topResult.value : [];
+      var seasonItems = seasonResult.status === 'fulfilled' && Array.isArray(seasonResult.value) ? seasonResult.value : [];
       var topSection =
         topResult.status === 'fulfilled'
-          ? createTopAnimeSection(topResult.value)
+          ? createTopAnimeSection(topItems)
           : createSectionError('Top Anime', getFriendlyErrorMessage(topResult.reason));
       var seasonSection =
         seasonResult.status === 'fulfilled'
-          ? createSeasonSection(seasonResult.value)
+          ? createSeasonSection(seasonItems)
           : createSectionError('Temporada actual', getFriendlyErrorMessage(seasonResult.reason));
 
       appView.replaceChildren(hero, topSection, seasonSection);
@@ -377,10 +390,6 @@
     var appView = document.getElementById('app-view');
     var navBar = document.querySelector('nav-bar');
     var navView = appState.currentView === 'detail' ? appState.previousView : appState.currentView;
-
-    if (window.AnimeHubApi && typeof window.AnimeHubApi.cancelAllRequests === 'function') {
-      window.AnimeHubApi.cancelAllRequests();
-    }
 
     if (!appView) {
       return;

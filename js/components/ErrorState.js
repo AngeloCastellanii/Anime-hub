@@ -13,8 +13,8 @@
       this.panel.className = 'error-state__panel';
       this.panel.setAttribute('role', 'alert');
 
-      this.title = document.createElement('strong');
-      this.title.textContent = this.titleText;
+      this.titleElement = document.createElement('strong');
+      this.titleElement.textContent = this.titleText;
 
       this.text = document.createElement('p');
       this.text.textContent = this.message;
@@ -24,11 +24,18 @@
       this.retryButton.className = 'error-state__retry';
       this.retryButton.textContent = 'Reintentar';
 
-      this.panel.appendChild(this.title);
+      this.panel.appendChild(this.titleElement);
       this.panel.appendChild(this.text);
       this.panel.appendChild(this.retryButton);
       this.root.appendChild(this.panel);
-      this.appendChild(this.root);
+
+      queueMicrotask(
+        function () {
+          if (!this.contains(this.root)) {
+            this.appendChild(this.root);
+          }
+        }.bind(this)
+      );
 
       this.retryButton.addEventListener('click', this.handleRetry.bind(this));
     }
@@ -49,7 +56,7 @@
 
     setTitle(title) {
       this.titleText = title || 'No se pudo completar la operacion';
-      this.title.textContent = this.titleText;
+      this.titleElement.textContent = this.titleText;
     }
 
     setCanRetry(canRetry) {

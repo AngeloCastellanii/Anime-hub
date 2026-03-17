@@ -62,8 +62,8 @@
       this.body = document.createElement('div');
       this.body.className = 'anime-card__body';
 
-      this.title = document.createElement('h3');
-      this.title.className = 'anime-card__title';
+      this.titleElement = document.createElement('h3');
+      this.titleElement.className = 'anime-card__title';
 
       this.meta = document.createElement('div');
       this.meta.className = 'anime-card__meta';
@@ -80,12 +80,19 @@
       this.meta.appendChild(this.score);
       this.meta.appendChild(this.episodes);
       this.meta.appendChild(this.status);
-      this.body.appendChild(this.title);
+      this.body.appendChild(this.titleElement);
       this.body.appendChild(this.meta);
       this.article.appendChild(this.image);
       this.article.appendChild(this.body);
       this.rootButton.appendChild(this.article);
-      this.appendChild(this.rootButton);
+
+      queueMicrotask(
+        function () {
+          if (!this.contains(this.rootButton)) {
+            this.appendChild(this.rootButton);
+          }
+        }.bind(this)
+      );
 
       this.rootButton.addEventListener('click', this.handleClick.bind(this));
       this.image.addEventListener('error', this.handleImageError.bind(this));
@@ -124,7 +131,7 @@
 
       this.image.src = animeInfo.imageUrl || this.fallbackCover;
       this.image.alt = 'Portada de ' + animeInfo.title;
-      this.title.textContent = animeInfo.title;
+      this.titleElement.textContent = animeInfo.title;
       this.score.textContent = 'Score: ' + animeInfo.score;
       this.episodes.textContent = 'Episodios: ' + animeInfo.episodes;
       this.status.textContent = animeInfo.status;

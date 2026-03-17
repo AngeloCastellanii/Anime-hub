@@ -18,7 +18,14 @@
       this.panel.appendChild(this.credit);
       this.panel.appendChild(this.source);
       this.root.appendChild(this.panel);
-      this.appendChild(this.root);
+
+      queueMicrotask(
+        function () {
+          if (!this.contains(this.root)) {
+            this.appendChild(this.root);
+          }
+        }.bind(this)
+      );
     }
   }
 

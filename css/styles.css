@@ -51,6 +51,18 @@ img {
   max-width: 100%;
 }
 
+nav-bar,
+app-footer,
+loading-state,
+error-state,
+anime-grid,
+anime-card,
+search-bar,
+genre-filter,
+anime-detail {
+  display: block;
+}
+
 .app-shell {
   min-height: 100vh;
   display: grid;
@@ -133,10 +145,14 @@ img {
 .genre-filter,
 .search-bar,
 .anime-detail,
-.anime-card,
 .anime-grid__empty {
   width: min(100% - 32px, var(--content-width));
   margin: 0 auto;
+}
+
+anime-card {
+  width: 100%;
+  margin: 0;
 }
 
 .navbar__content {
