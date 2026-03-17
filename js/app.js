@@ -3,7 +3,8 @@
     currentView: null,
     previousView: 'home',
     currentDetailId: null,
-    renderToken: 0
+    renderToken: 0,
+    pendingSearchQuery: ''
   };
 
   function createPlaceholderView(title, description) {
@@ -132,15 +133,26 @@
   }
 
   function createHomeHero() {
-    return createPlaceholderView(
+    var hero = createPlaceholderView(
       'Explora el universo del anime',
       'Descubre animes populares, sigue la temporada actual y accede rapidamente a informacion detallada de cada titulo.'
     );
+    var searchBar = document.createElement('search-bar');
+
+    searchBar.addEventListener('search-submit', function (event) {
+      var query = event.detail && event.detail.query ? event.detail.query : '';
+      appState.pendingSearchQuery = query;
+      navigateTo('search', false);
+    });
+
+    hero.classList.add('home-hero');
+    hero.appendChild(searchBar);
+    return hero;
   }
 
   function createTopAnimeSection(animes) {
     var wrapper = document.createElement('section');
-    wrapper.className = 'panel hero-panel';
+    wrapper.className = 'panel hero-panel home-section';
 
     var heading = document.createElement('h2');
     heading.textContent = 'Top Anime';
@@ -158,28 +170,128 @@
     return wrapper;
   }
 
-  async function renderHomeView(appView, renderToken) {
-    var loading = createLoadingState('Cargando portada', 'Consultando animes populares...');
+  function getCurrentSeasonLabel() {
+    var now = new Date();
+    var month = now.getMonth() + 1;
+    var year = now.getFullYear();
 
-    appView.appendChild(createHomeHero());
-    appView.appendChild(loading);
+    if (month >= 3 && month <= 5) {
+      return 'Primavera ' + year;
+    }
+
+    if (month >= 6 && month <= 8) {
+      return 'Verano ' + year;
+    }
+
+    if (month >= 9 && month <= 11) {
+      return 'Otono ' + year;
+    }
+
+    return 'Invierno ' + year;
+  }
+
+  function createSectionShell(title, subtitleText) {
+    var wrapper = document.createElement('section');
+    wrapper.className = 'panel hero-panel home-section';
+
+    var heading = document.createElement('h2');
+    heading.textContent = title;
+
+    var subtitle = document.createElement('p');
+    subtitle.textContent = subtitleText;
+
+    var body = document.createElement('div');
+    body.className = 'home-section__body';
+
+    wrapper.appendChild(heading);
+    wrapper.appendChild(subtitle);
+    wrapper.appendChild(body);
+
+    return {
+      wrapper: wrapper,
+      body: body
+    };
+  }
+
+  function createSectionError(title, message) {
+    var shell = createSectionShell(title, '');
+    var errorState = createErrorState('No se pudo cargar esta seccion', message, function () {
+      renderView();
+    });
+
+    shell.body.appendChild(errorState);
+    return shell.wrapper;
+  }
+
+  function createSeasonSection(animes) {
+    var seasonName = getCurrentSeasonLabel();
+    var shell = createSectionShell('Temporada actual', seasonName);
+    var row = document.createElement('div');
+
+    row.className = 'home-season-row';
+
+    (animes || []).slice(0, 6).forEach(function (anime) {
+      var card = document.createElement('anime-card');
+      card.classList.add('home-season-row__card');
+      card.data = anime;
+      row.appendChild(card);
+    });
+
+    if (!row.children.length) {
+      var empty = document.createElement('p');
+      empty.className = 'anime-grid__empty';
+      empty.textContent = 'No hay animes de temporada disponibles por ahora.';
+      shell.body.appendChild(empty);
+      return shell.wrapper;
+    }
+
+    shell.body.appendChild(row);
+    return shell.wrapper;
+  }
+
+  async function renderHomeView(appView, renderToken) {
+    var hero = createHomeHero();
+    var topLoadingShell = createSectionShell('Top Anime', 'Ranking de titulos populares desde MyAnimeList.');
+    var seasonLoadingShell = createSectionShell('Temporada actual', getCurrentSeasonLabel());
+    var topLoading = createLoadingState('Cargando Top Anime', 'Consultando animes populares...');
+    var seasonLoading = createLoadingState('Cargando temporada', 'Consultando animes en emision...');
+
+    topLoadingShell.body.appendChild(topLoading);
+    seasonLoadingShell.body.appendChild(seasonLoading);
+    appView.appendChild(hero);
+    appView.appendChild(topLoadingShell.wrapper);
+    appView.appendChild(seasonLoadingShell.wrapper);
 
     if (!window.AnimeHubApi || typeof window.AnimeHubApi.getTopAnime !== 'function') {
       appView.replaceChildren(
-        createHomeHero(),
+        hero,
         createErrorState('Servicio no disponible', 'No se encontro el servicio de API.', null)
       );
       return;
     }
 
     try {
-      var topAnime = await window.AnimeHubApi.getTopAnime({ limit: 12, timeoutMs: 10000 });
+      var results = await Promise.allSettled([
+        window.AnimeHubApi.getTopAnime({ limit: 12, timeoutMs: 10000 }),
+        window.AnimeHubApi.getCurrentSeasonAnime({ limit: 6, timeoutMs: 10000 })
+      ]);
 
       if (appState.renderToken !== renderToken || appState.currentView !== 'home') {
         return;
       }
 
-      appView.replaceChildren(createHomeHero(), createTopAnimeSection(topAnime));
+      var topResult = results[0];
+      var seasonResult = results[1];
+      var topSection =
+        topResult.status === 'fulfilled'
+          ? createTopAnimeSection(topResult.value)
+          : createSectionError('Top Anime', getFriendlyErrorMessage(topResult.reason));
+      var seasonSection =
+        seasonResult.status === 'fulfilled'
+          ? createSeasonSection(seasonResult.value)
+          : createSectionError('Temporada actual', getFriendlyErrorMessage(seasonResult.reason));
+
+      appView.replaceChildren(hero, topSection, seasonSection);
     } catch (error) {
       if (appState.renderToken !== renderToken || appState.currentView !== 'home') {
         return;
@@ -190,7 +302,7 @@
       }
 
       appView.replaceChildren(
-        createHomeHero(),
+        hero,
         createErrorState('Error cargando portada', getFriendlyErrorMessage(error), function () {
           renderView();
         })
@@ -199,12 +311,23 @@
   }
 
   function renderSearchView(appView) {
-    appView.appendChild(
-      createPlaceholderView(
-        'Encuentra tu proximo anime',
-        'Busca por nombre, explora por genero y descubre nuevas series en un solo lugar.'
-      )
+    var container = createPlaceholderView(
+      'Encuentra tu proximo anime',
+      'Busca por nombre, explora por genero y descubre nuevas series en un solo lugar.'
     );
+    var searchBar = document.createElement('search-bar');
+
+    if (typeof searchBar.setValue === 'function') {
+      searchBar.setValue(appState.pendingSearchQuery || '');
+    }
+
+    searchBar.addEventListener('search-submit', function (event) {
+      var query = event.detail && event.detail.query ? event.detail.query : '';
+      appState.pendingSearchQuery = query;
+    });
+
+    container.appendChild(searchBar);
+    appView.appendChild(container);
   }
 
   async function renderDetailView(appView, detailId, renderToken) {
