@@ -116,6 +116,16 @@ anime-detail {
   margin-top: 16px;
 }
 
+.search-controls .search-bar,
+.search-controls .genre-filter {
+  width: 100%;
+  margin: 14px 0 0;
+}
+
+.search-results__body {
+  margin-top: 16px;
+}
+
 .home-season-row {
   display: flex;
   gap: 14px;

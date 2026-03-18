@@ -41,6 +41,18 @@
       this.render();
     }
 
+    setValue(value) {
+      this.select.value = value || '';
+    }
+
+    getValue() {
+      return this.select.value || '';
+    }
+
+    setDisabled(disabled) {
+      this.select.disabled = Boolean(disabled);
+    }
+
     handleChange() {
       this.dispatchEvent(
         new CustomEvent('genre-change', {

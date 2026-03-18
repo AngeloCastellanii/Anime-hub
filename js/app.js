@@ -4,7 +4,9 @@
     previousView: 'home',
     currentDetailId: null,
     renderToken: 0,
-    pendingSearchQuery: ''
+    pendingSearchQuery: '',
+    pendingSearchGenreId: '',
+    cachedGenres: null
   };
 
   function createPlaceholderView(title, description) {
@@ -228,6 +230,153 @@
     return shell.wrapper;
   }
 
+  function createSearchControlsSection() {
+    var wrapper = document.createElement('section');
+    wrapper.className = 'panel hero-panel home-section search-controls';
+
+    var heading = document.createElement('h2');
+    heading.textContent = 'Busqueda y filtros';
+
+    var subtitle = document.createElement('p');
+    subtitle.textContent = 'Busca por nombre, filtra por genero o combina ambos criterios.';
+
+    var searchBar = document.createElement('search-bar');
+    var genreFilter = document.createElement('genre-filter');
+
+    if (typeof searchBar.setDebounceMs === 'function') {
+      searchBar.setDebounceMs(400);
+    }
+
+    if (typeof searchBar.setValue === 'function') {
+      searchBar.setValue(appState.pendingSearchQuery || '');
+    }
+
+    if (typeof genreFilter.setValue === 'function') {
+      genreFilter.setValue(appState.pendingSearchGenreId || '');
+    }
+
+    wrapper.appendChild(heading);
+    wrapper.appendChild(subtitle);
+    wrapper.appendChild(searchBar);
+    wrapper.appendChild(genreFilter);
+
+    return {
+      wrapper: wrapper,
+      searchBar: searchBar,
+      genreFilter: genreFilter
+    };
+  }
+
+  function createSearchResultsSection() {
+    var wrapper = document.createElement('section');
+    wrapper.className = 'panel hero-panel home-section search-results';
+
+    var heading = document.createElement('h2');
+    heading.textContent = 'Resultados';
+
+    var body = document.createElement('div');
+    body.className = 'search-results__body';
+
+    wrapper.appendChild(heading);
+    wrapper.appendChild(body);
+
+    return {
+      wrapper: wrapper,
+      body: body
+    };
+  }
+
+  function renderSearchInitialState(resultsBody) {
+    var info = document.createElement('p');
+    info.className = 'anime-grid__empty';
+    info.textContent = 'Ingresa un nombre o selecciona un genero para comenzar.';
+
+    resultsBody.replaceChildren(info);
+  }
+
+  function renderSearchResults(resultsBody, items) {
+    var grid = document.createElement('anime-grid');
+    grid.setEmptyMessage('No se encontraron animes con esos criterios.');
+    grid.data = Array.isArray(items) ? items : [];
+    resultsBody.replaceChildren(grid);
+  }
+
+  function ensureGenresLoaded(genreFilter, renderToken) {
+    if (appState.cachedGenres && appState.cachedGenres.length) {
+      genreFilter.data = appState.cachedGenres;
+      if (typeof genreFilter.setValue === 'function') {
+        genreFilter.setValue(appState.pendingSearchGenreId || '');
+      }
+      return Promise.resolve();
+    }
+
+    if (!window.AnimeHubApi || typeof window.AnimeHubApi.getAnimeGenres !== 'function') {
+      return Promise.reject({ type: 'network', message: 'Servicio de generos no disponible.' });
+    }
+
+    return window.AnimeHubApi.getAnimeGenres({ timeoutMs: 10000 }).then(function (genres) {
+      if (appState.renderToken !== renderToken || appState.currentView !== 'search') {
+        return;
+      }
+
+      appState.cachedGenres = Array.isArray(genres) ? genres : [];
+      genreFilter.data = appState.cachedGenres;
+
+      if (typeof genreFilter.setValue === 'function') {
+        genreFilter.setValue(appState.pendingSearchGenreId || '');
+      }
+    });
+  }
+
+  async function runSearch(resultsBody, renderToken) {
+    var query = (appState.pendingSearchQuery || '').trim();
+    var genreId = appState.pendingSearchGenreId || '';
+
+    if (!query && !genreId) {
+      renderSearchInitialState(resultsBody);
+      return;
+    }
+
+    if (!window.AnimeHubApi || typeof window.AnimeHubApi.searchAnime !== 'function') {
+      resultsBody.replaceChildren(
+        createErrorState('Servicio no disponible', 'No se encontro el servicio de busqueda.', null)
+      );
+      return;
+    }
+
+    resultsBody.replaceChildren(
+      createLoadingState('Buscando animes', 'Consultando resultados de busqueda y filtros...')
+    );
+
+    try {
+      var results = await window.AnimeHubApi.searchAnime({
+        query: query,
+        genreId: genreId,
+        timeoutMs: 10000
+      });
+
+      if (appState.renderToken !== renderToken || appState.currentView !== 'search') {
+        return;
+      }
+
+      renderSearchResults(resultsBody, results);
+    } catch (error) {
+      if (appState.renderToken !== renderToken || appState.currentView !== 'search') {
+        return;
+      }
+
+      if (error && error.type === 'cancelled') {
+        return;
+      }
+
+      resultsBody.replaceChildren(
+        createErrorState('Error en busqueda', getFriendlyErrorMessage(error), function () {
+          runSearch(resultsBody, renderToken);
+        })
+      );
+    }
+  }
+
   function createSeasonSection(animes) {
     var seasonName = getCurrentSeasonLabel();
     var shell = createSectionShell('Temporada actual', seasonName);
@@ -324,23 +473,60 @@
   }
 
   function renderSearchView(appView) {
-    var container = createPlaceholderView(
-      'Encuentra tu proximo anime',
-      'Busca por nombre, explora por genero y descubre nuevas series en un solo lugar.'
-    );
-    var searchBar = document.createElement('search-bar');
+    var renderToken = appState.renderToken;
+    var controls = createSearchControlsSection();
+    var resultsSection = createSearchResultsSection();
+    var resultsBody = resultsSection.body;
 
-    if (typeof searchBar.setValue === 'function') {
-      searchBar.setValue(appState.pendingSearchQuery || '');
+    appView.appendChild(controls.wrapper);
+    appView.appendChild(resultsSection.wrapper);
+
+    controls.genreFilter.setDisabled(true);
+    renderSearchInitialState(resultsBody);
+
+    function triggerSearch() {
+      runSearch(resultsBody, renderToken);
     }
 
-    searchBar.addEventListener('search-submit', function (event) {
+    controls.searchBar.addEventListener('search-debounced', function (event) {
       var query = event.detail && event.detail.query ? event.detail.query : '';
       appState.pendingSearchQuery = query;
+      triggerSearch();
     });
 
-    container.appendChild(searchBar);
-    appView.appendChild(container);
+    controls.searchBar.addEventListener('search-submit', function (event) {
+      var query = event.detail && event.detail.query ? event.detail.query : '';
+      appState.pendingSearchQuery = query;
+      triggerSearch();
+    });
+
+    controls.genreFilter.addEventListener('genre-change', function (event) {
+      var genreId = event.detail && event.detail.genreId ? event.detail.genreId : '';
+      appState.pendingSearchGenreId = genreId;
+      triggerSearch();
+    });
+
+    ensureGenresLoaded(controls.genreFilter, renderToken)
+      .then(function () {
+        if (appState.renderToken !== renderToken || appState.currentView !== 'search') {
+          return;
+        }
+
+        controls.genreFilter.setDisabled(false);
+        triggerSearch();
+      })
+      .catch(function (error) {
+        if (appState.renderToken !== renderToken || appState.currentView !== 'search') {
+          return;
+        }
+
+        controls.genreFilter.setDisabled(false);
+        resultsBody.replaceChildren(
+          createErrorState('Error cargando generos', getFriendlyErrorMessage(error), function () {
+            renderView();
+          })
+        );
+      });
   }
 
   async function renderDetailView(appView, detailId, renderToken) {
