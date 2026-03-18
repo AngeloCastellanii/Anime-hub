@@ -6,8 +6,51 @@
     renderToken: 0,
     pendingSearchQuery: '',
     pendingSearchGenreId: '',
-    cachedGenres: null
+    cachedGenres: null,
+    scrollMemory: {
+      home: 0,
+      search: 0
+    },
+    pendingScrollRestore: {
+      home: null,
+      search: null
+    },
+    detailOrigin: {
+      view: 'home',
+      scrollY: 0
+    }
   };
+
+  function rememberCurrentViewScroll() {
+    if (appState.currentView === 'home' || appState.currentView === 'search') {
+      appState.scrollMemory[appState.currentView] = window.scrollY || 0;
+    }
+  }
+
+  function queueScrollRestore(viewName, scrollY) {
+    if (viewName !== 'home' && viewName !== 'search') {
+      return;
+    }
+
+    appState.pendingScrollRestore[viewName] = typeof scrollY === 'number' ? scrollY : 0;
+  }
+
+  function applyPendingScrollRestore(viewName) {
+    if (viewName !== 'home' && viewName !== 'search') {
+      return;
+    }
+
+    if (typeof appState.pendingScrollRestore[viewName] !== 'number') {
+      return;
+    }
+
+    var targetY = appState.pendingScrollRestore[viewName];
+    appState.pendingScrollRestore[viewName] = null;
+
+    window.requestAnimationFrame(function () {
+      window.scrollTo({ top: targetY, left: 0, behavior: 'auto' });
+    });
+  }
 
   function createPlaceholderView(title, description) {
     var section = document.createElement('section');
@@ -334,6 +377,7 @@
 
     if (!query && !genreId) {
       renderSearchInitialState(resultsBody);
+      applyPendingScrollRestore('search');
       return;
     }
 
@@ -360,6 +404,7 @@
       }
 
       renderSearchResults(resultsBody, results);
+      applyPendingScrollRestore('search');
     } catch (error) {
       if (appState.renderToken !== renderToken || appState.currentView !== 'search') {
         return;
@@ -374,6 +419,7 @@
           runSearch(resultsBody, renderToken);
         })
       );
+      applyPendingScrollRestore('search');
     }
   }
 
@@ -454,6 +500,7 @@
           : createSectionError('Temporada actual', getFriendlyErrorMessage(seasonResult.reason));
 
       appView.replaceChildren(hero, topSection, seasonSection);
+      applyPendingScrollRestore('home');
     } catch (error) {
       if (appState.renderToken !== renderToken || appState.currentView !== 'home') {
         return;
@@ -469,6 +516,7 @@
           renderView();
         })
       );
+      applyPendingScrollRestore('home');
     }
   }
 
@@ -514,6 +562,7 @@
 
         controls.genreFilter.setDisabled(false);
         triggerSearch();
+        applyPendingScrollRestore('search');
       })
       .catch(function (error) {
         if (appState.renderToken !== renderToken || appState.currentView !== 'search') {
@@ -526,6 +575,7 @@
             renderView();
           })
         );
+        applyPendingScrollRestore('search');
       });
   }
 
@@ -554,6 +604,9 @@
       detail.data = detailData || { mal_id: detailId, title: 'Anime #' + detailId, synopsis: 'Sin datos disponibles.', genres: [] };
 
       appView.replaceChildren(detail);
+      window.requestAnimationFrame(function () {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      });
     } catch (error) {
       if (appState.renderToken !== renderToken || appState.currentView !== 'detail') {
         return;
@@ -568,6 +621,9 @@
           renderView();
         })
       );
+      window.requestAnimationFrame(function () {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      });
     }
   }
 
@@ -631,13 +687,19 @@
       return;
     }
 
+    rememberCurrentViewScroll();
     navigateTo(event.detail.route, false);
   });
 
   document.addEventListener('go-back', function () {
-    var fallbackView = appState.previousView || 'home';
+    var fallbackView = appState.detailOrigin.view || appState.previousView || 'home';
+    var fallbackScroll =
+      typeof appState.detailOrigin.scrollY === 'number'
+        ? appState.detailOrigin.scrollY
+        : appState.scrollMemory[fallbackView] || 0;
 
     if (appState.currentView === 'detail') {
+      queueScrollRestore(fallbackView, fallbackScroll);
       navigateTo(fallbackView, false);
     }
   });
@@ -645,6 +707,13 @@
   document.addEventListener('card-click', function (event) {
     if (!event.detail || !event.detail.id) {
       return;
+    }
+
+    if (appState.currentView === 'home' || appState.currentView === 'search') {
+      appState.detailOrigin = {
+        view: appState.currentView,
+        scrollY: window.scrollY || 0
+      };
     }
 
     navigateTo('detail/' + event.detail.id, false);

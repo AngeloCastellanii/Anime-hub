@@ -361,15 +361,45 @@ anime-card {
   padding: 24px;
 }
 
+.anime-detail__header {
+  display: grid;
+  grid-template-columns: minmax(180px, 260px) 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.anime-detail__cover {
+  width: 100%;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-line);
+  box-shadow: var(--shadow-soft);
+  object-fit: cover;
+  aspect-ratio: 2 / 3;
+}
+
+.anime-detail__content {
+  min-width: 0;
+}
+
 .anime-detail__title {
   margin: 16px 0 12px;
   font-size: clamp(1.8rem, 3vw, 2.8rem);
+}
+
+.anime-detail__subtitle {
+  margin: 0;
+  color: var(--color-muted);
 }
 
 .anime-detail__synopsis {
   margin: 16px 0;
   color: var(--color-muted);
   line-height: 1.6;
+}
+
+.anime-detail__section-title {
+  margin: 14px 0 8px;
+  font-size: 1rem;
 }
 
 .footer {
@@ -419,6 +449,14 @@ anime-card {
 
   .hero-panel {
     padding: 24px;
+  }
+
+  .anime-detail__header {
+    grid-template-columns: 1fr;
+  }
+
+  .anime-detail__title {
+    margin-top: 8px;
   }
 
   .home-season-row__card {
