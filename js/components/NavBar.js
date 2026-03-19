@@ -5,6 +5,7 @@
     button.className = 'navbar__link';
     button.textContent = label;
     button.dataset.route = route;
+    button.setAttribute('aria-label', 'Ir a ' + label.toLowerCase());
     return button;
   }
 
@@ -24,6 +25,7 @@
       this.brandButton.type = 'button';
       this.brandButton.className = 'navbar__brand';
       this.brandButton.textContent = 'AnimeHub';
+      this.brandButton.setAttribute('aria-label', 'Ir a inicio');
 
       this.nav = document.createElement('nav');
       this.nav.className = 'navbar__nav';
@@ -71,8 +73,18 @@
     render() {
       this.homeButton.classList.toggle('is-active', this.activeView === 'home');
       this.searchButton.classList.toggle('is-active', this.activeView === 'search');
-      this.homeButton.setAttribute('aria-current', this.activeView === 'home' ? 'page' : 'false');
-      this.searchButton.setAttribute('aria-current', this.activeView === 'search' ? 'page' : 'false');
+
+      if (this.activeView === 'home') {
+        this.homeButton.setAttribute('aria-current', 'page');
+      } else {
+        this.homeButton.removeAttribute('aria-current');
+      }
+
+      if (this.activeView === 'search') {
+        this.searchButton.setAttribute('aria-current', 'page');
+      } else {
+        this.searchButton.removeAttribute('aria-current');
+      }
     }
   }
 

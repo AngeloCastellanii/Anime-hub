@@ -241,6 +241,11 @@ anime-card {
   display: block;
 }
 
+.anime-grid__empty[hidden],
+.anime-grid__content[hidden] {
+  display: none !important;
+}
+
 .search-bar__form,
 .genre-filter__inner,
 .loading-state__panel,

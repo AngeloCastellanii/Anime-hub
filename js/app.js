@@ -1,4 +1,5 @@
 (function () {
+  // Estado global de navegacion, filtros y contexto entre vistas.
   var appState = {
     currentView: null,
     previousView: 'home',
@@ -181,6 +182,7 @@
     return errorState;
   }
 
+  // HOME: hero, top anime y temporada actual.
   function createHomeHero() {
     var hero = createPlaceholderView(
       'Explora el universo del anime',
@@ -207,7 +209,7 @@
     heading.textContent = 'Top Anime';
 
     var subtitle = document.createElement('p');
-    subtitle.textContent = 'Ranking de titulos populares desde MyAnimeList. Total: ' + animes.length;
+    subtitle.textContent = 'Ranking de titulos populares desde MyAnimeList.';
 
     var grid = document.createElement('anime-grid');
     grid.setEmptyMessage('La API respondio sin resultados para Top Anime.');
@@ -273,6 +275,7 @@
     return shell.wrapper;
   }
 
+  // SEARCH: controles y estado de resultados.
   function createSearchControlsSection() {
     var wrapper = document.createElement('section');
     wrapper.className = 'panel hero-panel home-section search-controls';
@@ -344,6 +347,7 @@
     resultsBody.replaceChildren(grid);
   }
 
+  // Carga de generos con cache en memoria para evitar peticiones repetidas.
   function ensureGenresLoaded(genreFilter, renderToken) {
     if (appState.cachedGenres && appState.cachedGenres.length) {
       genreFilter.data = appState.cachedGenres;
@@ -371,6 +375,7 @@
     });
   }
 
+  // Consulta de busqueda por texto/genero con estados de UI.
   async function runSearch(resultsBody, renderToken) {
     var query = (appState.pendingSearchQuery || '').trim();
     var genreId = appState.pendingSearchGenreId || '';
@@ -428,13 +433,7 @@
     var shell = createSectionShell('Temporada actual', seasonName);
     var row = document.createElement('div');
     var items = Array.isArray(animes) ? animes : [];
-    var subtitle = document.createElement('p');
-
     row.className = 'home-season-row';
-    subtitle.className = 'home-section__meta';
-    subtitle.textContent = 'Resultados de temporada: ' + items.length;
-
-    shell.body.appendChild(subtitle);
 
     items.slice(0, 6).forEach(function (anime) {
       var card = document.createElement('anime-card');
@@ -579,6 +578,7 @@
       });
   }
 
+  // DETAIL: consulta de anime completo por id.
   async function renderDetailView(appView, detailId, renderToken) {
     var loading = createLoadingState('Cargando detalle', 'Consultando informacion completa del anime...');
 
@@ -627,6 +627,7 @@
     }
   }
 
+  // Router SPA: decide que vista pintar segun hash actual.
   function renderView() {
     var renderToken = ++appState.renderToken;
     var appView = document.getElementById('app-view');
@@ -652,6 +653,7 @@
     }
   }
 
+  // Sincroniza estado interno con la ruta interpretada.
   function syncStateWithRoute(routeInfo) {
     if (routeInfo.view === 'detail') {
       if (appState.currentView && appState.currentView !== 'detail') {
@@ -666,6 +668,7 @@
     appState.currentView = routeInfo.view;
   }
 
+  // Punto central de re-render cuando cambia la ruta.
   function handleRouteChange() {
     var routeInfo = normalizeHash(window.location.hash);
 
