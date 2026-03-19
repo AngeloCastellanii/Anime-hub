@@ -7,6 +7,7 @@
     renderToken: 0,
     pendingSearchQuery: '',
     pendingSearchGenreId: '',
+    hasSearchInteracted: false,
     cachedGenres: null,
     scrollMemory: {
       home: 0,
@@ -380,7 +381,7 @@
     var query = (appState.pendingSearchQuery || '').trim();
     var genreId = appState.pendingSearchGenreId || '';
 
-    if (!query && !genreId) {
+    if (!query && !genreId && !appState.hasSearchInteracted) {
       renderSearchInitialState(resultsBody);
       applyPendingScrollRestore('search');
       return;
@@ -538,18 +539,21 @@
     controls.searchBar.addEventListener('search-debounced', function (event) {
       var query = event.detail && event.detail.query ? event.detail.query : '';
       appState.pendingSearchQuery = query;
+      appState.hasSearchInteracted = true;
       triggerSearch();
     });
 
     controls.searchBar.addEventListener('search-submit', function (event) {
       var query = event.detail && event.detail.query ? event.detail.query : '';
       appState.pendingSearchQuery = query;
+      appState.hasSearchInteracted = true;
       triggerSearch();
     });
 
     controls.genreFilter.addEventListener('genre-change', function (event) {
       var genreId = event.detail && event.detail.genreId ? event.detail.genreId : '';
       appState.pendingSearchGenreId = genreId;
+      appState.hasSearchInteracted = true;
       triggerSearch();
     });
 
